@@ -49,7 +49,7 @@ def change_coordinate_system(coords, path_image):
     arr_fig_shape = sitk.GetArrayFromImage(loaded_image).shape
 
     # account for papaya's weird system of changing coordinates
-    new_x = arr_fig_shape[1] - coords[0] # TODO: bug?????? y shape - x coord
+    new_x = arr_fig_shape[1] - coords[0]
     new_y = coords[1]
     new_z = arr_fig_shape[0] - coords[2]
 
