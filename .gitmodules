@@ -1,0 +1,3 @@
+[submodule "back-end/CrohnsDisease"]
+	path = back-end/CrohnsDisease
+	url = https://github.com/matt-baugh/CrohnsDisease

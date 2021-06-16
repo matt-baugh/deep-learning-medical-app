@@ -10,9 +10,13 @@ ALLOWED_EXTENSIONS = set(['nii', 'nii.gz'])
 
 app = Flask(__name__)
 
-CORS(app)
+cors = CORS(app)
+# cors = CORS(app, resources={r'/upload': {'origins': '*'},
+#                             r'/predict': {'origins': '*'},
+#                             r'/test': {'origins': '*'}})
 
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+#app.config['CORS_HEADERS'] = 'Content-Type'
 
 @app.route('/test', methods=['GET'])
 def test():
@@ -44,14 +48,15 @@ def prediction():
         host_ip = 'crohns'
         print(host_ip, file=sys.stderr)
         prediction = get_prediction(coords,latest_file,host_ip)
-        response = send_file('./feature_map_image.nii', attachment_filename='feature_map_image.nii') if showMaps.lower() == 'true' else make_response()
+        response = make_response() # send_file('./feature_map_image.nii', attachment_filename='feature_map_image.nii') if showMaps.lower() == 'true' else make_response()
         response.headers['Score'] = prediction
         response.headers['Access-Control-Expose-Headers'] = 'Score'
         print(response.headers)
 
         return response
-    except Exception:
+    except Exception as e:
         print("An error occured when extracting the feature maps.")
+        print(e)
         return "An error occured when extracting the feature maps."
 
 app.run(host='0.0.0.0', port=9000)

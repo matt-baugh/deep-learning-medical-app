@@ -6,12 +6,9 @@ Client that performs inferences on the tensorflow serving model using the REST A
 import SimpleITK as sitk
 from preprocessing.metadata import Patient
 from preprocessing.preprocess import Preprocessor
-from augmentation.augment_data import process
 import numpy as np
 from scipy.ndimage import zoom
 
-# for getting requests
-from predict_client.prod_client import ProdClient
 
 # constants needed for pre-proccesding
 record_shape = [37,99,99]
@@ -21,19 +18,20 @@ feature_shape = [31,87,87]
 def get_prediction(coords, path_to_img, host):
 
     # account for papaya recieved image
+    # coords [x,y,z] -> [y,x,z]??
     coords = change_coordinate_system(coords, path_to_img)
     # pre-process image so that it matches input of model
     processed_image = pre_process_image(coords, path_to_img)
     # specify where the client should look to make requests
-    client = ProdClient(host+':9200', 'crohns', 1)
+    # client = ProdClient(host+':9200', 'crohns', 1)
 
     # query tensorflow seriving model for predictions and attention layer
-    prob_values, max_prob_indx, attentions = query_client(processed_image, client)
+    prob_values, max_prob_indx, attentions = np.array([[0.5, 0.5]]), 0, None# query_client(processed_image, client)
 
-    # proccess the feature map to get the average and resize it
-    feature_maps_arr = process_feature_maps(attentions, processed_image[0].shape)
-    # make the attention layer into a nifit file
-    make_feature_image(coords, path_to_img, feature_maps_arr)
+    ## process the feature map to get the average and resize it
+    #feature_maps_arr = process_feature_maps(attentions, processed_image[0].shape)
+    ## make the attention layer into a nifit file
+    # make_feature_image(coords, path_to_img, feature_maps_arr)
 
     # produce an output string to display on front-end
     classes = {0: 'healthy', 1: 'abnormal (Crohn\'s)'}
@@ -44,18 +42,18 @@ def get_prediction(coords, path_to_img, host):
 
 
 def change_coordinate_system(coords, path_image):
-    print(coords)
+    print('initial coordinates: ', coords)
 
     # load original image and convert to numpy arr
     loaded_image = sitk.ReadImage(path_image)
     arr_fig_shape = sitk.GetArrayFromImage(loaded_image).shape
 
     # account for papaya's weird system of changing coordinates
-    new_x = arr_fig_shape[1] - coords[0]
+    new_x = arr_fig_shape[1] - coords[0] # TODO: bug?????? y shape - x coord
     new_y = coords[1]
     new_z = arr_fig_shape[0] - coords[2]
 
-    print(new_x, new_y, new_z)
+    print('New coordinates: ', new_x, new_y, new_z)
 
     return [new_y, new_x, new_z]
 
@@ -114,14 +112,15 @@ def pre_process_image(coords, path_to_img):
     patient.set_ileum_coordinates(coords)
     patient.load_image_data()
 
+    # [z,y,x] -> [y,x,z] but y=x
     preprocessor = Preprocessor(constant_volume_size=[record_shape[1], record_shape[2], record_shape[0]])
     [patient] = preprocessor.process([patient], ileum_crop=True, region_grow_crop=False, statistical_region_crop=False)
 
-    image = process(sitk.GetArrayFromImage(patient.axial_image), out_dims=feature_shape)
+    # image = process(sitk.GetArrayFromImage(patient.axial_image), out_dims=feature_shape)
     # add this extra dimension so that it is ready for the input of the tf serving model
-    image = image.reshape([-1, 1] + feature_shape)
+    # image = image.reshape([-1, 1] + feature_shape)
 
-    return image
+    return sitk.GetArrayFromImage(patient.axial_image)
 
 
 def query_client(image, client):
