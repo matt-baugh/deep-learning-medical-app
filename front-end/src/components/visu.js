@@ -62,8 +62,9 @@ const Visualization = () => {
             </Col>
             <Col sm={4} className="h-100">
                 <Box color="white" title="Upload image">
-                    <DragNDrop uploadedCallback={setUploaded} uploadingCallback={uploadingCallback} errorCallback={errorCallback} />
-                    <img src={metrics} style={{ maxWidth: "100%", height: "auto" }} className="mt-3" alt="metrics" />
+                    <DragNDrop uploadedCallback={setUploaded} uploadingCallback={uploadingCallback} errorCallback={errorCallback} scanType="axialt2"/>
+                    <DragNDrop uploadedCallback={setUploaded} uploadingCallback={uploadingCallback} errorCallback={errorCallback} scanType="coronalt2"/>
+                    <DragNDrop uploadedCallback={setUploaded} uploadingCallback={uploadingCallback} errorCallback={errorCallback} scanType="axialpc"/>
                 </Box>
             </Col>
         </Row>

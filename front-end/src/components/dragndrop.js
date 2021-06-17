@@ -7,6 +7,11 @@ import { uploadFile } from '../api/upload';
 
 const CancelToken = axios.CancelToken;
 const source = CancelToken.source();
+const scanTypeName = {
+    'axialt2': 'Axial T2 Weighted',
+    'coronalt2': 'Coronal T2 Weighted',
+    'axialpc': 'Axial Post Contrast'
+};
 
 /**
  * Custom component that provides a nice drag and drop area for uploading
@@ -14,8 +19,9 @@ const source = CancelToken.source();
  * @param {function} uploadedCallback // Informs the parent that the file is uploaded
  * @param {function} uploadingCallback  // Informs the parent the file is being uploaded
  * @param {function} errorCallback // Informs the parent in case of network error
+ * @param {string} scanType // Which type of MRI scan is this for uploading
  */
-const DragnDrop = ({ uploadedCallback, uploadingCallback, errorCallback }) => {
+const DragnDrop = ({ uploadedCallback, uploadingCallback, errorCallback, scanType }) => {
     const [progress, setProgress] = useState(0);
 
     /**
@@ -48,6 +54,7 @@ const DragnDrop = ({ uploadedCallback, uploadingCallback, errorCallback }) => {
     const handleSend = (file) => {
         const data = new FormData();
         data.append('file', file);
+        data.append('scanType', scanType);
         uploadFile(data, onUploadProgress, source.token).then(() => {
             uploadedCallback(true);
             uploadingCallback(false, null);
@@ -77,9 +84,9 @@ const DragnDrop = ({ uploadedCallback, uploadingCallback, errorCallback }) => {
                     ? <p data-testid = 'progress'>
                         <strong>{acceptedFiles[0].path} </strong>
                         <span>{(progress < 100 ? " is being uploaded... " : " has been uploaded successfully. ")}</span>
-                        <span><strong style={{ color: "#34a0d0" }}>Click</strong> to upload another file. </span>
+                        <span><strong style={{ color: "#34a0d0" }}>Click</strong> to upload another {scanTypeName[scanType]} file. </span>
                       </p>
-                    : <p data-testid = 'drag' >Drag 'n' drop a Nifti file here, or <strong style={{ color: "#34a0d0" }}>click</strong> to select a file.</p>
+                    : <p data-testid = 'drag' >Drag 'n' drop the {scanTypeName[scanType]} Nifti file here, or <strong style={{ color: "#34a0d0" }}>click</strong> to select a file.</p>
                     }
                     {acceptedFiles.length > 0 && progress < 100 ? <ProgressBar className="mt-2" animated striped variant="info" label={`${progress}%`} now={progress} /> : null}
                 </div>

@@ -7,13 +7,11 @@ import sys
 
 UPLOAD_FOLDER = '/uploads'
 ALLOWED_EXTENSIONS = set(['nii', 'nii.gz'])
+SCAN_TYPES = ['axialt2', 'coronalt2', 'axialpc']
 
 app = Flask(__name__)
 
 cors = CORS(app)
-# cors = CORS(app, resources={r'/upload': {'origins': '*'},
-#                             r'/predict': {'origins': '*'},
-#                             r'/test': {'origins': '*'}})
 
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 #app.config['CORS_HEADERS'] = 'Content-Type'
@@ -24,13 +22,18 @@ def test():
 
 @app.route('/upload', methods=['POST'])
 def fileUpload():
-    target=os.path.join(UPLOAD_FOLDER,'images')
+
+    scan_type = request.form['scanType']
+    if scan_type not in SCAN_TYPES:
+        return f'Invalid scan type: {scan_type}', 400
+
+    target = os.path.join(UPLOAD_FOLDER, 'images', scan_type)
     f = request.files['file']
     filename = f.filename
-    destination="/".join([os.path.abspath(os.getcwd()), target, filename])
+    destination = "/".join([os.path.abspath(os.getcwd()), target, filename])
     f.save(destination)
     #session['uploadFilePath']=destination
-    response="OK"
+    response = "OK"
     return response
 
 @app.route('/predict', methods=['GET'])
