@@ -7,7 +7,7 @@ import sys
 
 UPLOAD_FOLDER = '/uploads'
 ALLOWED_EXTENSIONS = set(['nii', 'nii.gz'])
-SCAN_TYPES = ['axialt2', 'coronalt2', 'axialpc']
+SCAN_TYPES = ['axialT2', 'coronalT2', 'axialPC']
 
 app = Flask(__name__)
 
@@ -62,4 +62,5 @@ def prediction():
         print(e)
         return "An error occured when extracting the feature maps."
 
-app.run(host='0.0.0.0', port=9000)
+
+app.run(host='0.0.0.0', port=9000, debug=True)

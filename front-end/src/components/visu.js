@@ -4,12 +4,13 @@ import Container from 'react-bootstrap/Container';
 import Row from 'react-bootstrap/Row';
 import Col from 'react-bootstrap/Col';
 import Alert from 'react-bootstrap/Alert';
+import Pagination from 'react-bootstrap/Pagination'
 import DragNDrop  from './dragndrop';
 import Score from './score';
 import Infos from './infos';
 import Box from './box';
 import upload from '../images/upload_white.svg';
-import metrics from '../images/metrics.png';
+import {axialT2, coronalT2, axialPC} from "../constants/frontend";
 
 
 /**
@@ -17,25 +18,38 @@ import metrics from '../images/metrics.png';
  * Wraps the Infos, DragNDrop, Score component and the papaya viewer
  */
 const Visualization = () => {
-    const [uploading, setUploading] = useState(false); // whether an image is being uploaded
-    const [uploaded, setUploaded] = useState(false); // whether an image has been uploaded
+    const [uploading, setUploading] = useState(false); // whether an image is being
+
+    const [axialT2Uploaded, setAxialT2Uploaded] = useState(false); // whether an axial t2 image has been uploaded
+    const [coronalT2Uploaded, setCoronalT2Uploaded] = useState(false); // whether an coronal t2 image has been uploaded
+    const [axialPCUploaded, setAxialPCUploaded] = useState(false); // whether an axial pc image has been uploaded
+
+    const [visibleScan, setVisibleScan] = useState(undefined);
+
     const [error, setError] = useState(null); // if any error occurs during download/upload
 
-    /**
-     * Triggers uploading process to the back-end
-     * If a file has been selected, the papaya viewer is reset and the selected
-     * image is loaded into it.
-     * After 2 seconds, the coordinate system is changed to physical (matches with
-     * model specifications).
-     * @param {bool} uploading
-     * @param {File[]} files
-     */
-    const uploadingCallback = (uploading, files) => {
-        setUploading(uploading);
-        if (files) {
-            window.papaya.Container.resetViewer(0);
-            window.papayaContainers[0].toolbar.doAction("OpenImage", files, true);
-            //setTimeout(() => window.papayaContainers[0].viewer.toggleWorldSpace(), 2000);
+    const allUploaded = axialT2Uploaded && coronalT2Uploaded && axialPCUploaded
+    const anyUploaded = axialT2Uploaded || coronalT2Uploaded || axialPCUploaded
+
+    const uploadingCallbackGen = (scanType) => {
+        /**
+         * Triggers uploading process to the back-end
+         * If a file has been selected, the papaya viewer is reset and the selected
+         * image is loaded into it.
+         * After 2 seconds, the coordinate system is changed to physical (matches with
+         * model specifications).
+         * @param {bool} uploading
+         * @param {File[]} files
+         */
+        return (uploading, files) => {
+            setUploading(uploading);
+            if (files) {
+                window.papaya.Container.resetViewer(0);
+                window.papayaContainers[0].viewer.loadBaseImage(files);
+                setVisibleScan(scanType);
+                //window.papayaContainers[0].toolbar.doAction("OpenImage", files, true);
+                //setTimeout(() => window.papayaContainers[0].viewer.toggleWorldSpace(), 2000);
+            }
         }
     }
 
@@ -53,26 +67,38 @@ const Visualization = () => {
 
     const errorCallback = () => setError('An error occured. Please try again later.');
 
+    const setBoth = (fn1, fn2) => {
+        return (boolValue) => {
+            fn1(boolValue);
+            fn2(boolValue);
+        }
+    }
+
     return (
     <Container id="visu" className="py-5 px-5 h-90" style={{ maxWidth: "100%" }}>
         {error ? <Alert variant="danger">{error}</Alert> : null}
         <Row className="mb-5 row-flex">
             <Col sm={8} className="h-100">
                 <Infos />
+                <Pagination>
+                    <Pagination.Item disabled={!axialT2Uploaded} active={visibleScan === axialT2}>Axial T2 Weighted Image</Pagination.Item>
+                    <Pagination.Item disabled={!coronalT2Uploaded} active={visibleScan === coronalT2}>Coronal T2 Weighted Image</Pagination.Item>
+                    <Pagination.Item disabled={!axialPCUploaded} active={visibleScan === axialPC}>Axial Post Contrast Image</Pagination.Item>
+                </Pagination>
             </Col>
             <Col sm={4} className="h-100">
                 <Box color="white" title="Upload image">
-                    <DragNDrop uploadedCallback={setUploaded} uploadingCallback={uploadingCallback} errorCallback={errorCallback} scanType="axialt2"/>
-                    <DragNDrop uploadedCallback={setUploaded} uploadingCallback={uploadingCallback} errorCallback={errorCallback} scanType="coronalt2"/>
-                    <DragNDrop uploadedCallback={setUploaded} uploadingCallback={uploadingCallback} errorCallback={errorCallback} scanType="axialpc"/>
+                    <DragNDrop uploadedCallback={setAxialT2Uploaded} uploadingCallback={uploadingCallbackGen(axialT2)} errorCallback={errorCallback} scanType={axialT2}/>
+                    <DragNDrop uploadedCallback={setCoronalT2Uploaded} uploadingCallback={uploadingCallbackGen(coronalT2)} errorCallback={errorCallback} scanType={coronalT2}/>
+                    <DragNDrop uploadedCallback={setAxialPCUploaded} uploadingCallback={uploadingCallbackGen(axialPC)} errorCallback={errorCallback} scanType={axialPC}/>
                 </Box>
             </Col>
         </Row>
         <Row className="row-flex">
-            <Col sm={!uploaded && !uploading ? 12 : 8}>
+            <Col sm={!anyUploaded && !uploading ? 12 : 8}>
                 <Box color="black" title="Papaya Viewer" >
                     <LoadingOverlay
-                        active={!uploaded && !uploading}
+                        active={!anyUploaded && !uploading}
                         spinner={false}
                         text={
                             <div className="d-flex flex-column align-items-center" data-testid='papaya_window' >
@@ -85,8 +111,8 @@ const Visualization = () => {
                     </LoadingOverlay>
                 </Box>
             </Col>
-            <Col sm={uploading || uploaded ? 4 : 0} className={!uploaded && !uploading ? "score-hidden" : "score mt-4 mt-sm-0"}>
-                <Score uploaded={uploaded} uploading={uploading} callback={dowloadingFeatureMapsCallback} />
+            <Col sm={!anyUploaded && !uploading ? 0 : 4} className={!anyUploaded && !uploading ? "score-hidden" : "score mt-4 mt-sm-0"}>
+                <Score uploaded={allUploaded} uploading={uploading} callback={dowloadingFeatureMapsCallback} />
             </Col>
         </Row>
     </Container>);

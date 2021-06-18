@@ -147,9 +147,9 @@ const Score = ({ uploaded, uploading, callback }) => {
                         className="my-3"
                         data-testid='button'
                         style={{ borderRadius: "4px", color: "#35a0d0", backgroundColor: "transparent", border: "2px solid #35a0d0", width: "70%", marginLeft: "15%" }}
-                        disabled={isLoading || uploading}
+                        disabled={isLoading || !uploaded}
                         onClick={!isLoading ? handleClick : null}>
-                        <strong>{isLoading ? 'Predicting...' + progress + '%' : (uploading ? 'Waiting for image...' : (uploaded ? 'Get prediction' : 'No image'))}</strong>
+                        <strong>{isLoading ? 'Predicting...' + progress + '%' : (uploading ? 'Uploading image...' : (uploaded ? 'Get prediction' : 'Upload all images'))}</strong>
                     </Button>
                     {visitedCoords.length > 0 ?
                     <Card>

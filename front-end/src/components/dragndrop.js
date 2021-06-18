@@ -4,13 +4,14 @@ import Dropzone from 'react-dropzone';
 import ProgressBar from 'react-bootstrap/ProgressBar';
 import upload from '../images/upload.svg';
 import { uploadFile } from '../api/upload';
+import {axialT2, coronalT2, axialPC} from "../constants/frontend";
 
 const CancelToken = axios.CancelToken;
 const source = CancelToken.source();
 const scanTypeName = {
-    'axialt2': 'Axial T2 Weighted',
-    'coronalt2': 'Coronal T2 Weighted',
-    'axialpc': 'Axial Post Contrast'
+    axialT2: 'Axial T2 Weighted',
+    coronalT2: 'Coronal T2 Weighted',
+    axialPC: 'Axial Post Contrast'
 };
 
 /**
