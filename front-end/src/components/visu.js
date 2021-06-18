@@ -97,7 +97,7 @@ const Visualization = () => {
     return (
     <Container id="visu" className="py-5 px-5 h-90" style={{ maxWidth: "100%" }}>
         {error ? <Alert variant="danger">{error}</Alert> : null}
-        <Row className="mb-5 row-flex">
+        <Row className="row-flex">
             <Col sm={8} className="h-100">
                 <Infos />
                 <Pagination>
@@ -105,17 +105,6 @@ const Visualization = () => {
                     {makeImageSelect(coronalT2, coronalT2Uploaded, coronalT2Scan)}
                     {makeImageSelect(axialPC, axialPCUploaded, axialPCScan)}
                 </Pagination>
-            </Col>
-            <Col sm={4} className="h-100">
-                <Box color="white" title="Upload image">
-                    <DragNDrop uploadedCallback={setAxialT2Uploaded} uploadingCallback={uploadingCallbackGen(axialT2)} errorCallback={errorCallback} scanType={axialT2}/>
-                    <DragNDrop uploadedCallback={setCoronalT2Uploaded} uploadingCallback={uploadingCallbackGen(coronalT2)} errorCallback={errorCallback} scanType={coronalT2}/>
-                    <DragNDrop uploadedCallback={setAxialPCUploaded} uploadingCallback={uploadingCallbackGen(axialPC)} errorCallback={errorCallback} scanType={axialPC}/>
-                </Box>
-            </Col>
-        </Row>
-        <Row className="row-flex">
-            <Col sm={!anyUploaded && !uploading ? 12 : 8}>
                 <Box color="black" title="Papaya Viewer" >
                     <LoadingOverlay
                         active={!anyUploaded && !uploading}
@@ -131,8 +120,13 @@ const Visualization = () => {
                     </LoadingOverlay>
                 </Box>
             </Col>
-            <Col sm={!anyUploaded && !uploading ? 0 : 4} className={!anyUploaded && !uploading ? "score-hidden" : "score mt-4 mt-sm-0"}>
-                <Score uploaded={allUploaded} uploading={uploading} callback={dowloadingFeatureMapsCallback} />
+            <Col sm={4} className="h-100">
+                <Box color="white" title="Upload image">
+                    <DragNDrop uploadedCallback={setAxialT2Uploaded} uploadingCallback={uploadingCallbackGen(axialT2)} errorCallback={errorCallback} scanType={axialT2}/>
+                    <DragNDrop uploadedCallback={setCoronalT2Uploaded} uploadingCallback={uploadingCallbackGen(coronalT2)} errorCallback={errorCallback} scanType={coronalT2}/>
+                    <DragNDrop uploadedCallback={setAxialPCUploaded} uploadingCallback={uploadingCallbackGen(axialPC)} errorCallback={errorCallback} scanType={axialPC}/>
+                </Box>
+                <Score uploaded={allUploaded} uploading={uploading} callback={dowloadingFeatureMapsCallback}/>
             </Col>
         </Row>
     </Container>);
