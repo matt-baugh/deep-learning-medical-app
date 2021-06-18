@@ -10,7 +10,7 @@ import Score from './score';
 import Infos from './infos';
 import Box from './box';
 import upload from '../images/upload_white.svg';
-import {axialT2, coronalT2, axialPC} from "../constants/frontend";
+import {axialT2, coronalT2, axialPC, scanTypeNames} from "../constants/frontend";
 
 
 /**
@@ -23,6 +23,10 @@ const Visualization = () => {
     const [axialT2Uploaded, setAxialT2Uploaded] = useState(false); // whether an axial t2 image has been uploaded
     const [coronalT2Uploaded, setCoronalT2Uploaded] = useState(false); // whether an coronal t2 image has been uploaded
     const [axialPCUploaded, setAxialPCUploaded] = useState(false); // whether an axial pc image has been uploaded
+
+    const [axialT2Scan, setAxialT2Scan] = useState(undefined)
+    const [coronalT2Scan, setCoronalT2Scan] = useState(undefined)
+    const [axialPCScan, setAxialPCScan] = useState(undefined)
 
     const [visibleScan, setVisibleScan] = useState(undefined);
 
@@ -47,8 +51,19 @@ const Visualization = () => {
                 window.papaya.Container.resetViewer(0);
                 window.papayaContainers[0].viewer.loadBaseImage(files);
                 setVisibleScan(scanType);
-                //window.papayaContainers[0].toolbar.doAction("OpenImage", files, true);
-                //setTimeout(() => window.papayaContainers[0].viewer.toggleWorldSpace(), 2000);
+                switch (scanType) {
+                    case axialT2:
+                        setAxialT2Scan(files);
+                        break;
+                    case coronalT2:
+                        setCoronalT2Scan(files);
+                        break;
+                    case axialPC:
+                        setAxialPCScan(files)
+                        break;
+                    default:
+                        setError('Invalid scan type: ' + scanType)
+                }
             }
         }
     }
@@ -67,11 +82,16 @@ const Visualization = () => {
 
     const errorCallback = () => setError('An error occured. Please try again later.');
 
-    const setBoth = (fn1, fn2) => {
-        return (boolValue) => {
-            fn1(boolValue);
-            fn2(boolValue);
+    const makeImageSelect = (scanType, scanUploaded, scanFile) => {
+
+        const selectImage = () => {
+            window.papayaContainers[0].viewer.loadBaseImage(scanFile);
+            setVisibleScan(scanType);
         }
+
+        return <Pagination.Item disabled={!scanUploaded} active={visibleScan === scanType} onClick={selectImage}>
+            {scanTypeNames[scanType]} Image
+        </Pagination.Item>
     }
 
     return (
@@ -81,9 +101,9 @@ const Visualization = () => {
             <Col sm={8} className="h-100">
                 <Infos />
                 <Pagination>
-                    <Pagination.Item disabled={!axialT2Uploaded} active={visibleScan === axialT2}>Axial T2 Weighted Image</Pagination.Item>
-                    <Pagination.Item disabled={!coronalT2Uploaded} active={visibleScan === coronalT2}>Coronal T2 Weighted Image</Pagination.Item>
-                    <Pagination.Item disabled={!axialPCUploaded} active={visibleScan === axialPC}>Axial Post Contrast Image</Pagination.Item>
+                    {makeImageSelect(axialT2, axialT2Uploaded, axialT2Scan)}
+                    {makeImageSelect(coronalT2, coronalT2Uploaded, coronalT2Scan)}
+                    {makeImageSelect(axialPC, axialPCUploaded, axialPCScan)}
                 </Pagination>
             </Col>
             <Col sm={4} className="h-100">

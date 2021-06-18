@@ -4,15 +4,10 @@ import Dropzone from 'react-dropzone';
 import ProgressBar from 'react-bootstrap/ProgressBar';
 import upload from '../images/upload.svg';
 import { uploadFile } from '../api/upload';
-import {axialT2, coronalT2, axialPC} from "../constants/frontend";
+import {axialT2, coronalT2, axialPC, scanTypeNames} from "../constants/frontend";
 
 const CancelToken = axios.CancelToken;
 const source = CancelToken.source();
-const scanTypeName = {
-    axialT2: 'Axial T2 Weighted',
-    coronalT2: 'Coronal T2 Weighted',
-    axialPC: 'Axial Post Contrast'
-};
 
 /**
  * Custom component that provides a nice drag and drop area for uploading
@@ -85,9 +80,9 @@ const DragnDrop = ({ uploadedCallback, uploadingCallback, errorCallback, scanTyp
                     ? <p data-testid = 'progress'>
                         <strong>{acceptedFiles[0].path} </strong>
                         <span>{(progress < 100 ? " is being uploaded... " : " has been uploaded successfully. ")}</span>
-                        <span><strong style={{ color: "#34a0d0" }}>Click</strong> to upload another {scanTypeName[scanType]} file. </span>
+                        <span><strong style={{ color: "#34a0d0" }}>Click</strong> to upload another {scanTypeNames[scanType]} file. </span>
                       </p>
-                    : <p data-testid = 'drag' >Drag 'n' drop the {scanTypeName[scanType]} Nifti file here, or <strong style={{ color: "#34a0d0" }}>click</strong> to select a file.</p>
+                    : <p data-testid = 'drag' >Drag 'n' drop the {scanTypeNames[scanType]} Nifti file here, or <strong style={{ color: "#34a0d0" }}>click</strong> to select a file.</p>
                     }
                     {acceptedFiles.length > 0 && progress < 100 ? <ProgressBar className="mt-2" animated striped variant="info" label={`${progress}%`} now={progress} /> : null}
                 </div>
