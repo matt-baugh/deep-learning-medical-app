@@ -50,7 +50,7 @@ def prediction():
     try:
         host_ip = 'crohns'
         print(host_ip, file=sys.stderr)
-        prediction = get_prediction(coords,latest_file,host_ip)
+        prediction = get_prediction(coords, latest_file, host_ip)
         response = make_response() # send_file('./feature_map_image.nii', attachment_filename='feature_map_image.nii') if showMaps.lower() == 'true' else make_response()
         response.headers['Score'] = prediction
         response.headers['Access-Control-Expose-Headers'] = 'Score'
