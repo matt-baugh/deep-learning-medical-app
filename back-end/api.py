@@ -2,23 +2,29 @@ import os
 import glob
 from flask import Flask, request, session, send_file, make_response
 from flask_cors import CORS, cross_origin
-from model_client import get_prediction
+from model_client import get_patient_prediction
 import sys
 
 UPLOAD_FOLDER = '/uploads'
 ALLOWED_EXTENSIONS = set(['nii', 'nii.gz'])
-SCAN_TYPES = ['axialT2', 'coronalT2', 'axialPC']
+
+AXIALT2 = 'axialT2'
+CORONALT2 = 'coronalT2'
+AXIALPC = 'axialPC'
+
+SCAN_TYPES = [AXIALT2, CORONALT2, AXIALPC]
 
 app = Flask(__name__)
 
 cors = CORS(app)
 
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
-#app.config['CORS_HEADERS'] = 'Content-Type'
+
 
 @app.route('/test', methods=['GET'])
 def test():
     return 'test works'
+
 
 @app.route('/upload', methods=['POST'])
 def fileUpload():
@@ -36,12 +42,19 @@ def fileUpload():
     response = "OK"
     return response
 
+
 @app.route('/predict', methods=['GET'])
 def prediction():
-    target = os.path.join(UPLOAD_FOLDER,'images')
-    destination = "/".join([os.path.abspath(os.getcwd()), target, '*'])
-    list_of_files = glob.glob(destination)
-    latest_file = max(list_of_files,key=os.path.getctime)
+
+    def get_latest_file(folder_name: str):
+        target = os.path.join(UPLOAD_FOLDER, 'images', folder_name)
+        destination = "/".join([os.path.abspath(os.getcwd()), target, '*'])
+        list_of_files = glob.glob(destination)
+        return max(list_of_files, key=os.path.getctime)
+
+    axial_t2_path = get_latest_file(AXIALT2)
+    coronal_t2_path = get_latest_file(CORONALT2)
+    axial_pc_path = get_latest_file(AXIALPC)
 
     data = request.args
     coords = [int(data.get('x')), int(data.get('y')), int(data.get('z'))]
@@ -50,9 +63,10 @@ def prediction():
     try:
         host_ip = 'crohns'
         print(host_ip, file=sys.stderr)
-        prediction = get_prediction(coords, latest_file, host_ip)
-        response = make_response() # send_file('./feature_map_image.nii', attachment_filename='feature_map_image.nii') if showMaps.lower() == 'true' else make_response()
-        response.headers['Score'] = prediction
+        pred_str = get_patient_prediction(coords, axial_t2_path, coronal_t2_path, axial_pc_path)
+        response = send_file('./feature_map_image.nii',
+                             attachment_filename='feature_map_image.nii') if showMaps.lower() == 'true' else make_response()
+        response.headers['Score'] = pred_str
         response.headers['Access-Control-Expose-Headers'] = 'Score'
         print(response.headers)
 

@@ -4,7 +4,7 @@ import Dropzone from 'react-dropzone';
 import ProgressBar from 'react-bootstrap/ProgressBar';
 import upload from '../images/upload.svg';
 import { uploadFile } from '../api/upload';
-import {axialT2, coronalT2, axialPC, scanTypeNames} from "../constants/frontend";
+import {scanTypeNames} from "../constants/frontend";
 
 const CancelToken = axios.CancelToken;
 const source = CancelToken.source();

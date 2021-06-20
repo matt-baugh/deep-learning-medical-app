@@ -1,4 +1,5 @@
 from typing import List
+import os
 
 import SimpleITK as sitk
 import numpy as np
@@ -20,7 +21,7 @@ MODEL_CONFIGS = {
         ATTENTION: True,
         PATH: '4/axial_only_extended_dataset_mode1loc1att1/fold0'
     },
-    POPULATION_LOC: {
+    POPULATION_LOC: {  # Test F-1 score 0.9
         ALL_MODALITIES: False,
         EVEN_RES: True,
         ATTENTION: True,
@@ -45,7 +46,7 @@ def construct_model(tag):
                             model_config[ATTENTION],
                             0.5,
                             3 if model_config[ALL_MODALITIES] else 1)
-    model.load_state_dict(torch.load(model_config[PATH]))
+    model.load_state_dict(torch.load(os.path.join(MODEL_PATH_BASE, model_config[PATH])))
     model.eval()
     model.to(DEVICE)
     return model
@@ -87,17 +88,14 @@ def get_patient_prediction(coords: List[int], path_to_axialt2: str, path_to_coro
     input_tensor = extract_model_input(patient, model_config[EVEN_RES], model_config[ALL_MODALITIES])
 
     # query tensorflow seriving model for predictions and attention layer
-    prob_values, max_prob_indx, attentions = np.array([[0.5, 0.5]]), 0, None  # query_client(processed_image, client)
-
-    ## process the feature map to get the average and resize it
-    # feature_maps_arr = process_feature_maps(attentions, processed_image[0].shape)
-    ## make the attention layer into a nifit file
-    # make_feature_image(coords, path_to_img, feature_maps_arr)
+    pred_prob, pred_ind, att_map = query_model(input_tensor, PATIENT_MODEL)
 
     # produce an output string to display on front-end
     classes = {0: 'healthy', 1: 'abnormal (Crohn\'s)'}
-    predictions = classes[max_prob_indx]
-    output_str = f'{predictions} with probability {round(prob_values[0][max_prob_indx], 3)}'
+    output_str = f'{classes[pred_ind]} with probability {round(pred_prob, 3)}'
+
+    att_map_img = make_attention_map_image(patient, att_map)
+    sitk.WriteImage(att_map_img, './feature_map_image.nii')
 
     return output_str
 
@@ -145,7 +143,7 @@ def extract_model_input(patient: Patient, even_res: bool, all_modalities: bool) 
 
     tensors = [torch.from_numpy(sitk.GetArrayFromImage(img)) for img in images]
 
-    sample_data = torch.stack(tensors)
+    sample_data = torch.stack(tensors).float()
 
     # Apply inference time data augmentation
     center_crop = _center_crop_gen([OUT_HIGH if even_res else OUT_LOW, OUT_HIGH, OUT_HIGH])
@@ -156,75 +154,45 @@ def extract_model_input(patient: Patient, even_res: bool, all_modalities: bool) 
     return torch.unsqueeze(sample_data, 0)
 
 
-def query_model(data: torch.Tensor, model: PytorchResNet3D):
+def query_model(data: torch.Tensor, model: PytorchResNet3D)\
+        -> (float, int, np.ndarray):
 
-    data = data.to(device=DEVICE)
+    print('Querying model...')
+    with torch.no_grad():
+        data = data.to(device=DEVICE)
 
-    pred, att_map = model.forward(data, True)
+        pred, att_map = model.forward(data, True)
 
-    pred, att_map = pred.cpu(), att_map.cpu()
+        pred, att_map = torch.squeeze(pred.cpu()), att_map.cpu()
 
-    # TODO: CONTINUE
-    # query the model with the given data
-    out_model = client.predict(req_data)
-    prob_values = out_model['Output']
-    max_prob_indx = np.argmax(np.squeeze(prob_values))
-    # get the attention layers
-    attention_layer = out_model['attention_layer']
+        pred_probs = torch.nn.functional.softmax(pred, dim=0)
 
-    return prob_values, max_prob_indx, attention_layer
+        pred_prob, pred_index = torch.max(pred_probs, dim=0)
 
+        # Rescale attention map to be same size as input
+        scaled_att_map = torch.nn.functional.interpolate(att_map, data.shape[2:], mode='trilinear', align_corners=True)
 
-def process_feature_maps(attention_layer, processed_image_shape):
-    # Get the mean of the feature maps
-    attention_layer = attention_layer.mean(4)
-    # Upsample the attention layer to 87, 87 size
-    ratio = tuple(map(lambda x, y: x / y, processed_image_shape, attention_layer.shape))
-    upsampled_attention_layer = zoom(attention_layer, ratio)
-
-    return upsampled_attention_layer
+    return pred_prob.item(), pred_index.item(), torch.squeeze(scaled_att_map).numpy()
 
 
-def make_feature_image(coords, path, feature_maps_arr):
-    # load original image and convert to numpy arr
-    loaded_image = sitk.ReadImage(path)
-    arr_fig = sitk.GetArrayFromImage(loaded_image).astype("float32")
-    # add the maps
-    new_arr = add_feature_arra_zero_arr(arr_fig, feature_maps_arr, coords, feature_shape)
-    # make it into a nifit file with the same meta-data as original image
-    make_arr_into_nifit_image(loaded_image, new_arr)
+def make_attention_map_image(patient, att_map):
+    att_map_img = sitk.GetImageFromArray(att_map)
+    out_dim = np.array(att_map_img.GetSize())
 
+    template_img = patient.axial_image
+    in_dim = np.array(template_img.GetSize())
 
-def add_feature_arra_zero_arr(arr_image, arr_feature_map, pixel_center, physical_crop_size):
-    # compute box size
-    box_size = np.array([physical_crop_size[1], physical_crop_size[2], physical_crop_size[
-        0]])  # np.array([pcsz / vsz for vsz,pcsz in zip(image.GetSpacing(), physical_crop_size)])
-    lb = np.array(pixel_center - box_size / 2).astype(int)  # lower corner of cropped box
-    ub = (lb + box_size).astype(int)  # upper corner of cropped box
-    # fully convert lower bound to Python (=!numpy) format, s.t. it can be used by SITK
-    lb = list(lb)
-    lb = [int(lower_b) for lower_b in lb]
+    # Axial image still has buffer around center, need to perform centre crop before we copy info
+    pixel_origin = (in_dim - out_dim) // 2
+    template_img = template_img[pixel_origin[0]: pixel_origin[0] + out_dim[0],
+                                pixel_origin[1]: pixel_origin[1] + out_dim[1],
+                                pixel_origin[2]: pixel_origin[2] + out_dim[2]]
 
-    # noramlise feature array and fill original image zeros
-    arr_feature_map = (arr_feature_map - arr_feature_map.min()) / (arr_feature_map.max() - arr_feature_map.min())
-    arr_image = np.zeros(arr_image.shape)
-
-    # get data of cropped box region
-    arr_image[lb[2]:ub[2], lb[0]:ub[0], lb[1]:ub[1]] = arr_feature_map  # place the feature map at the given location
-
-    return arr_image.astype(np.float32)
-
-
-def make_arr_into_nifit_image(base_image, new_image_arr):
-    # make the new image array a sitk Image
-    feature_map_image = sitk.GetImageFromArray(new_image_arr)
-    feature_map_image.CopyInformation(base_image)
-    # write to file
-    sitk.WriteImage(feature_map_image, './feature_map_image.nii')
-
-
+    att_map_img.CopyInformation(template_img)
+    return att_map_img
 
 
 if __name__ == "__main__":
     test_coords = [281, 258, 44]
-    get_patient_prediction(test_coords, "../examples/A1 Axial T2.nii")
+    get_patient_prediction(test_coords, "../examples/A1 Axial T2.nii", "../examples/A1 Coronal T2.nii",
+                           "../examples/A1 Axial Postcon.nii")
