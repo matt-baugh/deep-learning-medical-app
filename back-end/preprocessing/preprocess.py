@@ -81,6 +81,7 @@ class Preprocessor:
 
         # Population specific cropping (fully-automatic preprocessing)
         elif region_grow_crop:
+            print('Population-specific localisation')
             # First crop to patient (also to determine rough patient dimensions)
             for patient in patients:
                 patient.set_images(self.region_grow_crop(patient))
@@ -209,23 +210,5 @@ class Preprocessor:
         bounding_box = label_shape_filter.GetBoundingBox(label)
         cropped = sitk.RegionOfInterest(image, bounding_box[int(len(bounding_box)/2):], bounding_box[0:int(len(bounding_box)/2)])
 
-        # Calculate and print ileum location relative to cropped image
-        # Used for manual average calculation, which is applied as hardcoded value in statisical_region_crop mode
-
-        # Calculate cropped image physical center and size
-        crop_center = image_physical_center(cropped)
-        crop_physical_quadrant_size = np.array([spc * sz for spc, sz in zip(cropped.GetSpacing(), cropped.GetSize())]) / 2.0
-        # Calculate ileum relative position inside cropped image
-        ileum = [patient.ileum[1], patient.ileum[0], patient.ileum[2]]
-        physical_ileum_coords = image.TransformContinuousIndexToPhysicalPoint(np.array(ileum) * 1.0)
-        ileum_prop = (np.array(physical_ileum_coords) - crop_center) / crop_physical_quadrant_size
-
-        self.ileum_props.append(ileum_prop)
-        str_ileum_prop = [str(x) for x in ileum_prop]
-        str_ileum_prop = ('\t').join(str_ileum_prop)
-
-        # Metrics for ilea distribution
-        # print(f'{patient.get_id()}\t{patient.group}\t{patient.severity}\t{str_ileum_prop}')
-        # print(f'{patient.get_id()}\t{(np.array(physical_ileum_coords) - crop_center) / crop_physical_quadrant_size).join('\t')}')
-        # print(patient.ileum, cropped.TransformPhysicalPointToIndex(physical_ileum_coords))
+        # Deleted statistics collecting code, as should never be running that in this repo
         return cropped

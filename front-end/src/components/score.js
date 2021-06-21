@@ -12,8 +12,9 @@ import { getPrediction } from '../api/prediction';
  * @param {boolean} uploaded
  * @param {boolean} uploading
  * @param {function} callback
+ * @param {boolean} patientLoc
  */
-const Score = ({ uploaded, uploading, callback }) => {
+const Score = ({ uploaded, uploading, callback , patientLoc}) => {
     const [isLoading, setLoading] = useState(false); // whether inference is being run
     const [score, setScore] = useState(null); // score value
     const [coords, setCoords] = useState({x: 0, y:0, z:0}); // current selected coordinates in viewer
@@ -51,7 +52,7 @@ const Score = ({ uploaded, uploading, callback }) => {
             var center_y = Math.floor(viewer.volume.header.imageDimensions.yDim / 2);
             const origin_y = window.papayaContainers[0].viewer.volume.header.origin.y;
             var y = coords.y + 2 * (center_y - origin_y);
-            getPrediction(coords.x, y, coords.z, onDownloadProgress, showMaps).then((res) => {
+            getPrediction(patientLoc, coords.x, y, coords.z, onDownloadProgress, showMaps).then((res) => {
                 console.log(res);
                 setScore(res.headers.score); // get score from the response headers
                 if (askForMaps) { // if the user asked for the maps, display them
@@ -75,48 +76,57 @@ const Score = ({ uploaded, uploading, callback }) => {
      */
     const handleClick = () => {
         if (window.papayaContainers && window.papayaContainers.length > 0) {
-            //  add new line
-            const currentCoords = window.papayaContainers ? window.papayaContainers[0].viewer.currentCoord : {x: 0, y:0, z:0};
-            const computedCoords = {
-                x: currentCoords.x,
-                y: currentCoords.y,
-                z: currentCoords.z
-            };
-            const currentCoords_dummy = window.papayaContainers[0].viewer.getWorldCoordinateAtIndex(Number((currentCoords.x).toFixed(1)), Number((currentCoords.y).toFixed(1)), Number((currentCoords.z).toFixed(1)), new window.papaya.core.Coordinate(0, 0, 0));
-            const computedCoords_dummy = {
-                x: currentCoords_dummy.x,
-                y: currentCoords_dummy.y,
-                z: currentCoords_dummy.z
-            };
-            setCoords(computedCoords);
+            if (patientLoc) {
+                const currentCoords = window.papayaContainers ? window.papayaContainers[0].viewer.currentCoord : {
+                    x: 0,
+                    y: 0,
+                    z: 0
+                };
+                const computedCoords = {
+                    x: currentCoords.x,
+                    y: currentCoords.y,
+                    z: currentCoords.z
+                };
+                const currentCoords_dummy = window.papayaContainers[0].viewer.getWorldCoordinateAtIndex(Number((currentCoords.x).toFixed(1)), Number((currentCoords.y).toFixed(1)), Number((currentCoords.z).toFixed(1)), new window.papaya.core.Coordinate(0, 0, 0));
+                const computedCoords_dummy = {
+                    x: currentCoords_dummy.x,
+                    y: currentCoords_dummy.y,
+                    z: currentCoords_dummy.z
+                };
+                setCoords(computedCoords);
 
-            console.log(computedCoords);
-            console.log(visitedCoords);
-
-
-            let coordsExist = false;
-            visitedCoords.forEach((visitedCoord) => {
-                coordsExist = JSON.stringify(visitedCoord[0]) === JSON.stringify(computedCoords_dummy);
-            });
-            if (!coordsExist) {
-                setScore(null);
-                if (visitedCoords.length > 0 && window.papayaContainers.length > 0 && window.papayaContainers[0].viewer.screenVolumes.length > 1) {
-                    window.papaya.Container.removeImage(0, 1);
-                }
-                let temp = visitedCoords;
-                temp.push([computedCoords_dummy, computedCoords]);
-                setVisitedCoords(temp);
-                setLoading(true);
+                console.log(computedCoords);
                 console.log(visitedCoords);
+
+
+                let coordsExist = false;
+                visitedCoords.forEach((visitedCoord) => {
+                    coordsExist = JSON.stringify(visitedCoord[0]) === JSON.stringify(computedCoords_dummy);
+                });
+                if (!coordsExist) {
+                    setScore(null);
+                    if (visitedCoords.length > 0 && window.papayaContainers.length > 0 && window.papayaContainers[0].viewer.screenVolumes.length > 1) {
+                        window.papaya.Container.removeImage(0, 1);
+                    }
+                    let temp = visitedCoords;
+                    temp.push([computedCoords_dummy, computedCoords]);
+                    setVisitedCoords(temp);
+                    setLoading(true);
+                    console.log(visitedCoords);
+                }
+            } else {
+                setLoading(true);
             }
         }
     }
+
+    const inferenceType = patientLoc ? 'Patient-specific ' : 'Population-specific '
 
     return (
         <Card className="box" style={{ backgroundColor: "white" }}>
             <Card.Body className="d-flex flex-column justify-content-between">
                 <div className="d-flex justify-content-between">
-                    <strong className="mb-3" style={{color: "black"}}>Inference</strong>
+                    <strong className="mb-3" style={{color: "black"}}>{inferenceType}Inference</strong>
                     <label className="d-flex align-items-center w-50">
                         <input type="checkbox" checked={showMaps} onChange={() => setShowMaps(!showMaps)} />
                         <span title="Display attention maps" className="overflow-hidden text-truncate ml-1">Display attention maps</span>

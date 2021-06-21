@@ -1,9 +1,8 @@
-from typing import List
+from typing import List, Optional
 import os
 
 import SimpleITK as sitk
 import numpy as np
-from scipy.ndimage import zoom
 import torch
 import torchvision.transforms as T
 
@@ -73,22 +72,23 @@ normalize_3d = T.Lambda(
 )
 
 
-def get_patient_prediction(coords: List[int], path_to_axialt2: str, path_to_coronalt2: str, path_to_axialpc: str):
-
-    model_config = MODEL_CONFIGS[PATIENT_LOC]
+def get_prediction(coords: Optional[List[int]], path_to_axialt2: str, path_to_coronalt2: str, path_to_axialpc: str):
+    model_config = MODEL_CONFIGS[POPULATION_LOC if coords is None else PATIENT_LOC]
 
     patient = construct_patient(path_to_axialt2, path_to_coronalt2, path_to_axialpc, model_config[ALL_MODALITIES])
 
-    # Match coordinate system
-    # coords [x,y,z] -> [y,x,z] (
-    coords = change_coordinate_system(coords, patient)
-    patient.set_ileum_coordinates(coords)
+    # Coords != None => patient-specific localisation, else population-specific localisation
+    if coords is not None:
+        # Match coordinate system
+        # coords [x,y,z] -> [y,x,z]
+        coords = change_coordinate_system(coords, patient)
+        patient.set_ileum_coordinates(coords)
 
     # pre-process image so that it matches input of model
     input_tensor = extract_model_input(patient, model_config[EVEN_RES], model_config[ALL_MODALITIES])
 
     # query tensorflow seriving model for predictions and attention layer
-    pred_prob, pred_ind, att_map = query_model(input_tensor, PATIENT_MODEL)
+    pred_prob, pred_ind, att_map = query_model(input_tensor, POPULATION_MODEL if coords is None else PATIENT_MODEL)
 
     # produce an output string to display on front-end
     classes = {0: 'healthy', 1: 'abnormal (Crohn\'s)'}
@@ -100,7 +100,7 @@ def get_patient_prediction(coords: List[int], path_to_axialt2: str, path_to_coro
     return output_str
 
 
-def construct_patient(path_to_axialt2: str, path_to_coronalt2: str, path_to_axialpc: str, all_modalities: bool)\
+def construct_patient(path_to_axialt2: str, path_to_coronalt2: str, path_to_axialpc: str, all_modalities: bool) \
         -> Patient:
     patient = Patient('UNK', 0)
     patient.set_paths(path_to_axialt2, path_to_coronalt2, path_to_axialpc)
@@ -125,13 +125,20 @@ def change_coordinate_system(coords: List[int], patient: Patient) -> List[int]:
 
 
 def extract_model_input(patient: Patient, even_res: bool, all_modalities: bool) -> torch.Tensor:
-
     # In [x,y,z] to match SITK
     preprop_shape = [IN_HIGH, IN_HIGH, IN_HIGH if even_res else IN_LOW]
 
     # [z,y,x] -> [y,x,z] but y=x
     preprocessor = Preprocessor(constant_volume_size=preprop_shape)
-    [patient] = preprocessor.process([patient], ileum_crop=True, region_grow_crop=False, statistical_region_crop=False)
+    print('ileum: ', patient.ileum)
+    if patient.ileum is None:
+        # Population-specific localisation
+        [patient] = preprocessor.process([patient],
+                                         ileum_crop=False, region_grow_crop=True, statistical_region_crop=True)
+    else:
+        # Patient-specific localisation
+        [patient] = preprocessor.process([patient],
+                                         ileum_crop=True, region_grow_crop=False, statistical_region_crop=False)
 
     images = [patient.axial_image]
     if all_modalities:
@@ -154,9 +161,8 @@ def extract_model_input(patient: Patient, even_res: bool, all_modalities: bool) 
     return torch.unsqueeze(sample_data, 0)
 
 
-def query_model(data: torch.Tensor, model: PytorchResNet3D)\
+def query_model(data: torch.Tensor, model: PytorchResNet3D) \
         -> (float, int, np.ndarray):
-
     print('Querying model...')
     with torch.no_grad():
         data = data.to(device=DEVICE)
@@ -194,5 +200,5 @@ def make_attention_map_image(patient, att_map):
 
 if __name__ == "__main__":
     test_coords = [281, 258, 44]
-    get_patient_prediction(test_coords, "../examples/A1 Axial T2.nii", "../examples/A1 Coronal T2.nii",
-                           "../examples/A1 Axial Postcon.nii")
+    get_prediction(test_coords, "../examples/A1 Axial T2.nii", "../examples/A1 Coronal T2.nii",
+                   "../examples/A1 Axial Postcon.nii")

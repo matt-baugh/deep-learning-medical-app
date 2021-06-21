@@ -126,7 +126,8 @@ const Visualization = () => {
                     <DragNDrop uploadedCallback={setCoronalT2Uploaded} uploadingCallback={uploadingCallbackGen(coronalT2)} errorCallback={errorCallback} scanType={coronalT2}/>
                     <DragNDrop uploadedCallback={setAxialPCUploaded} uploadingCallback={uploadingCallbackGen(axialPC)} errorCallback={errorCallback} scanType={axialPC}/>
                 </Box>
-                <Score uploaded={allUploaded} uploading={uploading} callback={dowloadingFeatureMapsCallback}/>
+                <Score uploaded={allUploaded} uploading={uploading} callback={dowloadingFeatureMapsCallback} patientLoc={true}/>
+                <Score uploaded={allUploaded} uploading={uploading} callback={dowloadingFeatureMapsCallback} patientLoc={false}/>
             </Col>
         </Row>
     </Container>);

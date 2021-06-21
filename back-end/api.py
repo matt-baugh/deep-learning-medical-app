@@ -2,7 +2,7 @@ import os
 import glob
 from flask import Flask, request, session, send_file, make_response
 from flask_cors import CORS, cross_origin
-from model_client import get_patient_prediction
+from model_client import get_prediction
 import sys
 
 UPLOAD_FOLDER = '/uploads'
@@ -57,13 +57,15 @@ def prediction():
     axial_pc_path = get_latest_file(AXIALPC)
 
     data = request.args
-    coords = [int(data.get('x')), int(data.get('y')), int(data.get('z'))]
+    patient_loc = bool(data.get('patientLoc', default=0, type=int))
+    coords = [int(data.get('x')), int(data.get('y')), int(data.get('z'))] if patient_loc else None
     showMaps = data.get('showMaps')
 
     try:
         host_ip = 'crohns'
         print(host_ip, file=sys.stderr)
-        pred_str = get_patient_prediction(coords, axial_t2_path, coronal_t2_path, axial_pc_path)
+        print('Localisation: ', patient_loc)
+        pred_str = get_prediction(coords, axial_t2_path, coronal_t2_path, axial_pc_path)
         response = send_file('./feature_map_image.nii',
                              attachment_filename='feature_map_image.nii') if showMaps.lower() == 'true' else make_response()
         response.headers['Score'] = pred_str
